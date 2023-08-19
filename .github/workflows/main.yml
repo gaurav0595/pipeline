@@ -21,6 +21,6 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        docker build -t your-docker-image-name:latest .
-        docker tag your-docker-image-name:latest your-docker-username/your-docker-image-name:latest
-        docker push your-docker-username/your-docker-image-name:latest
+        docker build -t myapp:latest .
+        docker tag myapp:latest gaurav112/myapp:latest
+        docker push gaurav112/myapp:latest

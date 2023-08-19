@@ -1,6 +1,6 @@
 #FROM python:3.8-alpine3.16
 FROM python:3.8-slim-bullseye
-#FROM python:3.8-slim-buster 
+#ddFROM python:3.8-slim-buster 
 #RUN apk --update add --no-cache bash gcc libc-dev 
 RUN apt update && apt  install -y   bash gcc libc-dev 
 

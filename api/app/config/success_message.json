@@ -1,0 +1,15 @@
+{
+    "200": {
+        "2001": "Successful!",
+        "2002": "Login Success!",
+        "2003": "Details updated successfully!",
+        "2004": "Email sent!",
+        "2005": "Email verified!",
+        "2006": "File uploaded successfully!",
+        "2008": "Data Not Found!"
+    },
+    "208": {
+        "2081": "already reported",
+        "2082": "Email already verified!"
+    }
+}

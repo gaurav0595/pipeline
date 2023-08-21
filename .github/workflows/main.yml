@@ -24,6 +24,10 @@ jobs:
         docker tag myapp:latest gaurav112/myapp:latest
         docker push gaurav112/myapp:latest
         chmod 777 manifests 
+    - name: Set Git Configurations
+      run: |
+        git config --global user.email "gauravkhatri0595@gmail.com"
+        git config --global user.name "gaurav"   
     - name: Set up Kustomize
       run: |
         curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash

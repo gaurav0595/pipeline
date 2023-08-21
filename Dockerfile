@@ -4,7 +4,7 @@ FROM python:3.8-slim-bullseye
 #RUN apk --update add --no-cache bash gcc libc-dev 
 RUN apt update && apt  install -y   bash gcc libc-dev 
 
-#Setting Timezone-India
+#S
 #RUN apk add tzdata
 #RUN apt install tzdata
 RUN cp /usr/share/zoneinfo/Asia/Kolkata /etc/localtime

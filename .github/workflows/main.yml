@@ -44,7 +44,7 @@ jobs:
         git branch deploy
         git checkout deploy
         rm -rf *
-        git checkout dev -- kustomization
+        git checkout master -- kustomization
         git add .
         git commit -m "deploy with version $VERSION"  
         git push origin deploy

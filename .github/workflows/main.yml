@@ -24,12 +24,10 @@ jobs:
         echo "Version: $VERSION"
     - name: Build and Push Docker Image
       run: |
-        docker build -t myapp:$VERSION .
+        docker build -t myapp:latest .
         docker tag myapp:$VERSION gaurav112/myapp:$VERSION
-        docker push gaurav112/myapp:$VERSION
+        docker push gaurav112/myapp:latest
         chmod 777 manifests 
-        sed -i "s/\$VERSION/$VERSION/" manifests/kustomization.yaml
-
     - name: Set up Kustomize
       run: |
         curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
@@ -38,8 +36,6 @@ jobs:
         cd manifests
         kustomize build . > ../kustomization/manifests.yaml
         cd ..
-        export VERSION=$(git describe --tags --abbrev=0)
-        sed -i "s/\$VERSION/$VERSION/" kustomization/manifests.yaml
         cat kustomization/manifests.yaml
         git add .
         git commit -m "deployment file created"

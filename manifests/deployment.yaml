@@ -26,7 +26,7 @@ spec:
             #claimName: naam-dev-search-api-backend
       containers:
         - name: naam-dev-search-api-backend
-          image: gaurav112/myapp:$VERSION
+          image: gaurav112/myapp:latest
             # volumeMounts:           # Add the "volumeMounts" section
             # - name: naam-dev-search-api-backend      # Reference the volume name defined above
               # mountPath: /app

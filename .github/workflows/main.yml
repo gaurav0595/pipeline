@@ -29,6 +29,8 @@ jobs:
         curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
         chmod +x kustomize
         mv kustomize /usr/local/bin
+        ls
+        pwd
         cd ../../manifests
         kustomize build . > ../kustomization/manifests.yaml
         cd ..

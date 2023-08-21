@@ -23,6 +23,7 @@ jobs:
       run: |
         export VERSION=$(git describe --tags --abbrev=0)
         echo "Version: $VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Build and Push Docker Image
       run: |

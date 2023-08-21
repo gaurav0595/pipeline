@@ -31,7 +31,7 @@ jobs:
         mv kustomize /usr/local/bin
         ls
         pwd
-        cd ../../manifests
+        cd manifests
         kustomize build . > ../kustomization/manifests.yaml
         cd ..
         cat kustomization/manifests.yaml

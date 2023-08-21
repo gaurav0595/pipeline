@@ -1,9 +1,9 @@
-name: Docker Build and Push
+name: Docker Build and Push with Kustomize
 
 on:
   push:
     branches:
-      - main  # Adjust the branch name as needed
+      - master  # Adjust the branch name as needed
 
 jobs:
   build-and-push:
@@ -19,8 +19,39 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
+    - name: Get Version from Git Tags
+      run: |
+        export VERSION=$(git describe --tags --abbrev=0)
+        echo "Version: $VERSION"
+
     - name: Build and Push Docker Image
       run: |
-        docker build -t myapp:latest .
-        docker tag myapp:latest gaurav112/myapp:latest
-        docker push gaurav112/myapp:latest
+        docker build -t gaurav112/myapp:$VERSION .
+        docker push gaurav112/myapp:$VERSION
+        chmod 777 manifests 
+        sed -i "s/\$VERSION/$VERSION/" manifests/kustomization.yaml
+
+    - name: Set up Kustomize
+      run: |
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+        chmod +x kustomize
+        mv kustomize /usr/local/bin
+        cd manifests
+        kustomize build . > ../kustomization/manifests.yaml
+        cd ..
+        export VERSION=$(git describe --tags --abbrev=0)
+        sed -i "s/\$VERSION/$VERSION/" kustomization/manifests.yaml
+        cat kustomization/manifests.yaml
+        git add .
+        git commit -m "deployment file created"
+        git push origin --delete deploy
+        git branch deploy
+        git checkout deploy
+        rm -rf *
+        git checkout dev -- kustomization
+        git add .
+        git commit -m "deploy with version $VERSION"  
+        git push origin deploy
+
+
+

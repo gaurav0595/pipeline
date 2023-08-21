@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+
+images:
+  - name: gaurav112/myapp
+    newName: gaurav112/myapp
+    newTag: $VERSION

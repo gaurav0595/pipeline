@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: naam-dev-search-api-backend
+  namespace: naam-dev
+  labels:
+    type: dev
+    server-type: naam-dev-search-api-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      type: dev
+      server-type: naam-dev-search-api-backend
+  template:
+    metadata:
+      labels:
+        type: dev
+        server-type: naam-dev-search-api-backend
+    spec:
+      nodeSelector:
+          node-role.kubernetes.io/worker: w1
+            #volumes:                    # Add the "volumes" section
+            # - name: naam-dev-search-api-backend          # Define the volume name
+            #  persistentVolumeClaim:
+            #claimName: naam-dev-search-api-backend
+      containers:
+        - name: naam-dev-search-api-backend
+          image: gaurav112/myapp:$VERSION
+            # volumeMounts:           # Add the "volumeMounts" section
+            # - name: naam-dev-search-api-backend      # Reference the volume name defined above
+              # mountPath: /app
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "2"
+            requests:
+              memory: 128Mi
+              cpu: "0.5"
+      imagePullSecrets:
+        - name: imgcred1

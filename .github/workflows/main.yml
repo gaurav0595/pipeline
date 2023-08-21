@@ -21,8 +21,6 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        export VERSION=$(git describe --tags)
-        echo "Version: $VERSION"
         docker build -t myapp:$VERSION .
         docker tag myapp:$VERSION gaurav112/myapp:$VERSION
         docker push gaurav112/myapp:$VERSION

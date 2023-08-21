@@ -26,7 +26,8 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        docker build -t gaurav112/myapp:$VERSION .
+        docker build -t myapp:$VERSION .
+        docker tag myapp:$VERSION gaurav112/myapp:$VERSION
         docker push gaurav112/myapp:$VERSION
         chmod 777 manifests 
         sed -i "s/\$VERSION/$VERSION/" manifests/kustomization.yaml

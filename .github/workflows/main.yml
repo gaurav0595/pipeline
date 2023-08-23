@@ -1,24 +1,17 @@
-name: Git Tag List
+name: Set Git Tag to GitHub Environment
 
 on:
   push:
     branches:
-      - master # Change this to your desired branch
+      - master
 
 jobs:
-  git-tag-list:
+  set_git_tag:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Pull latest code
-      run: git pull origin master # Change the branch if needed
-
-    - name: List Git Tags
-      run: git tag --list
-      id: tag_list
-
-    - name: Print Tags
-      run: echo "Tags:${{ steps.tag_list.outputs.stdout }}"
+    - name: Set Git Tag to GitHub Environment
+      run: echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV

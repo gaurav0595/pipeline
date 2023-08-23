@@ -20,5 +20,3 @@ jobs:
       id: latest_tag
       run: echo "::set-output name=tag::$(git describe --abbrev=0 --tags)"
 
-    - name: Display Latest Tag
-      run: echo "Latest tag: ${{ steps.latest_tag.outputs.tag }}"

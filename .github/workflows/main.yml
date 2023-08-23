@@ -16,4 +16,17 @@ jobs:
       id: tags
       run: |
         git fetch --tags
-        echo "Tags fetched" 
+        echo "Tags fetched"
+    - name: Get Latest Tag
+      id: latest-tag
+      run: |
+        latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+        echo "::set-output name=tag::$latest_tag"
+    - name: Docker Build and Push
+      env:
+        TAG: ${{ steps.latest-tag.outputs.tag }}
+      run: |
+        # Your Docker build and push commands using Kustomize here
+        # Replace <your-image-name> with your actual image name
+        docker build -t <your-image-name>:${TAG} .
+        docker push <your-image-name>:${TAG}

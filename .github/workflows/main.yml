@@ -24,8 +24,6 @@ jobs:
     - name: Use Tag Variable
       run: echo "Tag name is $TAG_NAME"
     - name: Build and Push Docker Image
-      env:
-        VERSION: ${{ steps.get-version.outputs.version }}
       run: |
         docker build -t gaurav112/myapp:$TAG_NAME .
         docker push gaurav112/myapp:$TAG_NAME

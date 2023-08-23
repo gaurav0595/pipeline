@@ -1,20 +1,24 @@
-name: Git Pull and List Tags
+name: Git Tag List
 
 on:
   push:
     branches:
-      - master  # Change this to the branch you want to trigger the workflow on
+      - main # Change this to your desired branch
 
 jobs:
-  git_pull_and_list_tags:
+  git-tag-list:
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
 
-      - name: Pull latest code
-        run: git pull origin master  # Change 'main' to your desired branch
-        
-      - name: List Git Tags
-        run: git tag --list
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Pull latest code
+      run: git pull origin main # Change the branch if needed
+
+    - name: List Git Tags
+      run: git tag --list
+      id: tag_list
+
+    - name: Print Tags
+      run: echo "Tags: ${{ steps.tag_list.outputs.stdout }}"

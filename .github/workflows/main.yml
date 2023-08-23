@@ -12,11 +12,6 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v2
-    - name: Get Tags
-      id: tags
-      run: |
-        git fetch --tags
-        echo "Tags fetched"
     - name: Get Latest Tag
       id: latest-tag
       run: |

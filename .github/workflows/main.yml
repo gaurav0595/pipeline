@@ -12,7 +12,7 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v2
-    - name: Get Git Tag
+    - name: get-version
       id: version
       run: echo "::set-output name=version::$(git describe --tags --abbrev=0)"
       #- name: Export Tag as Environment Variable

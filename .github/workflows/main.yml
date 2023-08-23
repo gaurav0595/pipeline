@@ -3,7 +3,7 @@ name: Get Latest Tag
 on:
   push:
     branches:
-      - master # You can change this to the desired branch
+      - master
 
 jobs:
   get-latest-tag:
@@ -13,7 +13,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Run Git Command
+      - name: Get Tags
+        id: tags
         run: |
-          latest_tag=$(git describe --tags --abbrev=0)
+          git fetch --tags
+          echo "Tags fetched"
+
+      - name: Determine Latest Tag
+        id: latest_tag
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "No tags found")
           echo "Latest tag: $latest_tag"
+        shell: /usr/bin/bash -e {0}

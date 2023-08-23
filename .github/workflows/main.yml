@@ -28,5 +28,5 @@ jobs:
       run: |
         # Your Docker build and push commands using Kustomize here
         # Replace <your-image-name> with your actual image name
-        docker build -t <your-image-name>:${TAG} .
+        docker build -t gaurav112/myapp:${TAG} .
         docker push <your-image-name>:${TAG}

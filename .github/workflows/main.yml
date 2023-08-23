@@ -1,37 +1,20 @@
-name: Get Latest Tag
+name: Deploy on Tag
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'  # Run the workflow when a tag starting with 'v' is pushed
 
 jobs:
-  get-latest-tag:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Get Tags
-        id: tags
+      - name: Deploy
         run: |
-          git fetch --tags
-          echo "Tags fetched"
-          git describe --tags --abbrev=0
-
-      - name: Determine Latest Tag
-        id: latest_tag
-        run: |
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "latest_tag")
-          echo "Latest tag: $latest_tag"
-          echo "VERSION=$latest_tag" >> $GITHUB_ENV
-
-      - name: Export Version
-        run: |
-          echo "Exporting VERSION=$VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Echo Version
-        run: |
-          echo "Version: $VERSION"
+          # Add your deployment steps here
+          # You can use the $GITHUB_REF environment variable to access the tag name
+          echo "Deploying tag: $GITHUB_REF"

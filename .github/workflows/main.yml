@@ -1,21 +1,20 @@
-name: Git Pull and Describe Tag
+name: Git Pull and List Tags
 
 on:
   push:
     branches:
-      - master
+      - master  # Change this to the branch you want to trigger the workflow on
 
 jobs:
-  git_pull_and_describe:
+  git_pull_and_list_tags:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Git Pull
-      run: git tag --list
-
-    - name: Get Latest Tag
-      run: git describe --abbrev=0 --tags
-
+      - name: Pull latest code
+        run: git pull origin master  # Change 'main' to your desired branch
+        
+      - name: List Git Tags
+        run: git tag --list

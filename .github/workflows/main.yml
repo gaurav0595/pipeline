@@ -1,4 +1,4 @@
-name: Git Describe Tag
+name: Git Pull and Describe Tag
 
 on:
   push:
@@ -6,17 +6,19 @@ on:
       - master
 
 jobs:
-  describe-tag:
+  git_pull_and_describe:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout Repository
+    - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Git Pull
+      run: git pull origin master
+
     - name: Get Latest Tag
-      id: get-tag
-      run: |
-        git describe --tags --abbrev=0
-    - name: Print Tag Value
-      run: |
-        echo "The latest tag is ${{ steps.get-tag.outputs.tag }}"
+      id: latest_tag
+      run: echo "::set-output name=tag::$(git describe --abbrev=0 --tags)"
+
+    - name: Display Latest Tag
+      run: echo "Latest tag: ${{ steps.latest_tag.outputs.tag }}"

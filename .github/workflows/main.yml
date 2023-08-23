@@ -19,14 +19,16 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Get Git Tag
-      id: set_tag
-      run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-    - name: Use Tag Variable
-      run: echo "Tag name is $TAG_NAME"
+      id: get_tag
+      run: |
+        GIT_TAG=$(git describe --tags --abbrev=0)
+        echo "Git Tag: $GIT_TAG"
+        echo "::set-output name=tag::$GIT_TAG" 
     - name: Build and Push Docker Image
       run: |
-        docker build -t gaurav112/myapp:$TAG_NAME .
-        docker push gaurav112/myapp:$TAG_NAME
+        VERSION="${{ steps.get_tag.outputs.tag }}"
+        docker build -t gaurav112/myapp:$VERSION .
+        docker push gaurav112/myapp:$VERSION
     - name: Update Kustomization
       env:
         VERSION: ${{ steps.get-version.outputs.version }}

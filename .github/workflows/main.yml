@@ -22,7 +22,7 @@ jobs:
       id: get-tag
       run: echo "::set-output name=version::$(git describe --tags --abbrev=0)"
     - name: Export Tag as Environment Variable
-      run: echo "VERSION=${{ steps.get-version.outputs.version }}" >> $VERSION      
+      run: echo "VERSION=${{ steps.get-version.outputs.version }}" >> $GITHUB_ENV    
     - name: Build and Push Docker Image
       run: |
         docker build -t gaurav112/myapp:$VERSION .

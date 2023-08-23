@@ -20,10 +20,11 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Build and Push Docker Image
       run: |
-        docker build -t myapp:latest .
-        docker tag myapp:latest gaurav112/myapp:latest
-        docker push gaurav112/myapp:latest
+        export VERSION=$(git describe --tags --abbrev=0)
+        docker build -t gaurav112/myapp:$VERSION .
+        docker push gaurav112/myapp:@VERSION
         chmod 777 manifests 
+        sed -i "s/\$VERSION/$VERSION/" manifests/kustomization.yaml
     - name: Set Git Configurations
       run: |
         git config --global user.email "gauravkhatri0595@gmail.com"

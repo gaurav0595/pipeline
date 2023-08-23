@@ -7,4 +7,4 @@ resources:
 images:
   - name: gaurav112/myapp
     newName: gaurav112/myapp
-    newTag: $VERSION
+    newTag: $TAG

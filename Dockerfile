@@ -1,4 +1,4 @@
-#FROM python:3.8-alpine3.16
+#DFROM python:3.8-alpine3.16
 FROM python:3.8-slim-bullseye
 #ddFROM python:3.8-slim-buster 
 #RUN apk --update add --no-cache bash gcc libc-dev 

@@ -48,6 +48,8 @@ jobs:
         git config --global user.name "gaurav"
            
     - name: Set up Kustomize
+      env:
+        TAG: ${{ steps.latest-tag.outputs.tag }}    
       run: |
         curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
         chmod +x kustomize
@@ -56,6 +58,7 @@ jobs:
         ls
         kustomize build . > ../kustomization/manifests.yaml
         cd ..
+        sed -i "s/\$TAG/$TAG/" kustomization/manifests.yaml
         cat kustomization/manifests.yaml
         git add .
         git commit -m "deployment file created"

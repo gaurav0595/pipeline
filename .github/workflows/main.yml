@@ -16,10 +16,7 @@ jobs:
     - name: Get Latest Tag
       id: get-tag
       run: |
-        latest_tag=$(git describe --tags --abbrev=0)
-        echo "Latest Tag: $latest_tag"
-        echo "::set-output name=tag::$latest_tag"
-
+        git describe --tags --abbrev=0
     - name: Print Tag Value
       run: |
         echo "The latest tag is ${{ steps.get-tag.outputs.tag }}"

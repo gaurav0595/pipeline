@@ -12,6 +12,11 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v2
+    - name: Get Tags
+      id: tags
+      run: |
+        git fetch --tags
+        echo "Tags fetched"      
     - name: Get Latest Tag
       id: latest-tag
       run: |
@@ -30,3 +35,35 @@ jobs:
         # Replace <your-image-name> with your actual image name
         docker build -t gaurav112/myapp:${TAG} .
         docker push gaurav112/myapp:${TAG} 
+    - name: Update Kustomization
+      env:
+        TAG: ${{ steps.latest-tag.outputs.tag }}
+      run: |
+        chmod 777 manifests
+        sed -i "s/\$TAG/$TAG/" manifests/kustomization.yaml
+        
+    - name: Set Git Configurations
+      run: |
+        git config --global user.email "gauravkhatri0595@gmail.com"
+        git config --global user.name "gaurav"
+           
+    - name: Set up Kustomize
+      run: |
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+        chmod +x kustomize
+        mv kustomize /usr/local/bin
+        cd manifests
+        ls
+        kustomize build . > ../kustomization/manifests.yaml
+        cd ..
+        cat kustomization/manifests.yaml
+        git add .
+        git commit -m "deployment file created"
+        git push origin --delete deploy
+        git branch deploy
+        git checkout deploy
+        rm -rf *
+        git checkout master -- kustomization
+        git add .
+        git commit -m "deploy with version $TAG"  
+        git push origin deploy        

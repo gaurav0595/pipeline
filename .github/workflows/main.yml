@@ -24,4 +24,13 @@ jobs:
         run: |
           latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "No tags found")
           echo "Latest tag: $latest_tag"
-        shell: /usr/bin/bash -e {0}
+          echo "VERSION=$latest_tag" >> $GITHUB_ENV
+
+      - name: Export Version
+        run: |
+          echo "Exporting VERSION=$VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Echo Version
+        run: |
+          echo "Version: $VERSION"

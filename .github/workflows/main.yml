@@ -21,4 +21,4 @@ jobs:
       id: tag_list
 
     - name: Print Tags
-      run: echo "Tags: ${{ steps.tag_list.outputs.stdout }}"
+      run: echo "Tags:${{ steps.tag_list.outputs.stdout }}"

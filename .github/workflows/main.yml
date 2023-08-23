@@ -1,20 +1,65 @@
-name: Deploy on Tag
+name: Docker Build and Push with Kustomize
 
 on:
   push:
-    tags:
-      - 'v*'  # Run the workflow when a tag starting with 'v' is pushed
+    branches:
+      - master  # Adjust the branch name as needed
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
-
-      - name: Deploy
-        run: |
-          # Add your deployment steps here
-          # You can use the $GITHUB_REF environment variable to access the tag name
-          echo "Deploying tag: $GITHUB_REF"
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+    - name: Get Tags
+      id: tags
+      run: |
+        git fetch --tags
+        echo "Tags fetched"      
+ 
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and Push Docker Image
+      env:
+        VERSION: ${{ steps.get-version.outputs.version }}
+      run: |
+        docker build -t gaurav112/myapp:$VERSION .
+        docker push gaurav112/myapp:$VERSION
+        
+    - name: Update Kustomization
+      env:
+        VERSION: ${{ steps.get-version.outputs.version }}
+      run: |
+        chmod 777 manifests
+        sed -i "s/\$VERSION/$VERSION/" manifests/kustomization.yaml
+        
+    - name: Set Git Configurations
+      run: |
+        git config --global user.email "gauravkhatri0595@gmail.com"
+        git config --global user.name "gaurav"
+           
+    - name: Set up Kustomize
+      run: |
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+        chmod +x kustomize
+        mv kustomize /usr/local/bin
+        cd manifests
+        ls
+        kustomize build . > ../kustomization/manifests.yaml
+        cd ..
+        cat kustomization/manifests.yaml
+        git add .
+        git commit -m "deployment file created"
+        git push origin --delete deploy
+        git branch deploy
+        git checkout deploy
+        rm -rf *
+        git checkout master -- kustomization
+        git add .
+        git commit -m "deploy with version $VERSION"  
+        git push origin deploy

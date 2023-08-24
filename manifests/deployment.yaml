@@ -19,7 +19,7 @@ spec:
         server-type: naam-dev-search-api-backend
     spec:
       nodeSelector:
-          node-role.kubernetes.io/worker: w1
+          node-role.kubernetes.io/master: m1
             #volumes:                    # Add the "volumes" section
             # - name: naam-dev-search-api-backend          # Define the volume name
             #  persistentVolumeClaim:

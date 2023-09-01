@@ -14,6 +14,7 @@
                 "user_logs": "signup_user_logs",
                 "pincodes": "naam_pincodes",
                 "feedback": "naam_user_feedback",
+                "user_permission": "user_permission",
                 "tags": "user_tags",
                 "users": "users", 
                 "otp": "mobile_otp",
@@ -146,7 +147,7 @@
         ]
     },
     "settings": {
-        "methodList": [ "FC", "SS", "CO", "SO" ],
+        "methodList": [ "FC", "SS", "CO", "SO", "WA" ],
         "userBlockTime": 1800000,
         "userBlockTimeIn": "mins",
 
@@ -154,7 +155,7 @@
         "signupTTLIn": "mins",
 
         "OTPTimeLimit": 600000,
-        "wrongOTPLimit": 3,
+        "wrongOTPLimit": 5,
         "resendOTPLimit": 2,
 
         "RandomCharInUserImg": 8,
@@ -165,6 +166,7 @@
         "nameLimit": 30,
         "emailLimit": 80,
         "callSearchTypes": [ "inc_call", "out_call", "src_box", "call_log", "search_tap" ],
-        "emailVerificationTTL" : 1800000
+        "emailVerificationTTL" : 1800000,
+        "rabbitmqTTL": 18000000
     }
 }

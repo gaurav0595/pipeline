@@ -1,35 +1,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: naam-dev-search-api-backend
+  name: naam-dev-api-backend
   namespace: naam-dev
   labels:
     type: dev
-    server-type: naam-dev-search-api-backend
+    server-type: naam-dev-api-backend
 spec:
   replicas: 1
   selector:
     matchLabels:
       type: dev
-      server-type: naam-dev-search-api-backend
+      server-type: naam-dev-api-backend
   template:
     metadata:
       labels:
         type: dev
-        server-type: naam-dev-search-api-backend
+        server-type: naam-dev-api-backend
     spec:
       nodeSelector:
-          node-role.kubernetes.io/master: m1
-            #volumes:                    # Add the "volumes" section
-            # - name: naam-dev-search-api-backend          # Define the volume name
-            #  persistentVolumeClaim:
-            #claimName: naam-dev-search-api-backend
+          node-role.kubernetes.io/worker: w1
+      #volumes:                    # Add the "volumes" section
+       # - name: naam-dev-api-backend          # Define the volume name
+          #persistentVolumeClaim:
+            #claimName: naam-dev-api-backend    # Specify the name of the PersistedntVolumeClaim (PVC) to bind to
       containers:
-        - name: naam-dev-search-api-backend
-          image: gaurav112/myapp:$TAG
-            # volumeMounts:           # Add the "volumeMounts" section
-            # - name: naam-dev-search-api-backend      # Reference the volume name defined above
-              # mountPath: /app
+        - name: naam-dev-api-backend
+          image:  dev-registry.sarv.com/naam-dev/naam-dev-api-backend:$VERSION
+          #volumeMounts:           # Add the "volumeMounts" section
+            #- name: naam-dev-api-backend      # Reference the volume name defined above
+              #mountPath: /app      # Mount the volume at the desired path inside the container
           resources:
             limits:
               memory: 1Gi

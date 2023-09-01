@@ -1,12 +1,10 @@
-import json, environ
+import json, os
 from rest_framework.views import APIView
 from app.helper.commonFunction import get_success_response, get_error_response, validate_cc, handle_exception, forward_exception
-from app.helper.logger import logger
 from app.model.elasticModel import es_search
 
 # read env
-env = environ.Env()	
-MINIO_BUCKET_URL = env('MINIO_BUCKET_URL')	
+MINIO_BUCKET_URL = os.environ.get('MINIO_BUCKET_URL')
 
 config = json.load(open('app/config/config.json'))
 LANGDATA = config['templates']['langDetail']
@@ -47,11 +45,9 @@ class GetCity(APIView):
             data = es_search(cityIndex,query)
 
             if(len(data) == 0):
-                logger.warning(f"No City Found")
                 return get_success_response(200, 2004, data, "No City Found!")
             return get_success_response(200, 2001, data)
         else:
-            logger.error("state_id Not found") 
             return get_error_response(400, 4002)
             
     except Exception as e:
@@ -99,7 +95,6 @@ class SetLangImage(APIView):
                     return get_success_response(200, 2001, respData)
 
         else:
-            logger.error(f"Enter a Valid langCode") 
             return get_error_response(400, 4001, "Enter a Valid langCode!")
     except Exception as e:
         return handle_exception(forward_exception(e, 'setLangImage[view]'), request)
@@ -116,12 +111,10 @@ class GetCountry(APIView):
 
             # Checking if Value exists
             if bool(country_code) == False:
-                logger.error("Enter a Country Code")  
                 return get_error_response(400, 4001)
 
             cc = validate_cc(country_code)
             if bool(cc)==False:
-                logger.error(f"Enter Valid Country Code")   
                 return get_error_response(400, 4001, "Enter Valid Country Code!")
 
             query = { "query": { "bool": { "must": [{ "match": { "ISD_code" : country_code }} ]} }}

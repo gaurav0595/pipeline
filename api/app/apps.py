@@ -1,4 +1,4 @@
-import traceback, time, json, sys, environ
+import traceback, time, json, sys, os
 from operator import itemgetter
 
 from django.apps import AppConfig
@@ -9,9 +9,14 @@ from django.dispatch import receiver
 from app.helper.commonFunction import send_mail
 from app.model.elasticModel import es_search
 
-# read env
-env = environ.Env()	
-MINIO_BUCKET_URL = env('MINIO_BUCKET_URL')	
+from django.core.cache import cache
+
+
+# Env variables
+MINIO_BUCKET_URL = os.environ.get('MINIO_BUCKET_URL')
+CURRENT_ENV = os.environ.get('CURR_ENV')
+
+
 config = json.load(open('app/config/config.json'))
 
 ES_INDICES       = config['data']['elastic']['indices']
@@ -46,14 +51,14 @@ class NaamapiConfig(AppConfig):
     name = 'app'
 
     def ready(self):
+
         TAG_CACHE = get_tag_cache()
 
         # this receiver will catch the server execption signal and then sending an email about it to the admins.
         @receiver(got_request_exception)
         def send_error_email(sender, request, **kwargs):
-            # logger.info('sending email request originated.')
             exc_type, exc_value, tb = sys.exc_info()
             message = f'<div style="background:#e2e8f0;padding:10px;border-left:0.4em solid red"><b>Error::</b> {exc_value}<br/><b>Stack::</b> {traceback.format_tb(tb)}<br/></div>'
             recipient_list = [admin[1] for admin in settings.ADMINS]
-            subject = 'Server Exception Occurred in Naam Production'
+            subject = f'Server Exception Occurred in Naam {CURRENT_ENV}'
             send_mail(subject, recipient_list, message)

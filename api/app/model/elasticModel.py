@@ -1,11 +1,17 @@
-import environ
+import os
+import traceback
 from elasticsearch import Elasticsearch	
+from app.helper.log_methods import Info, Error, Critical, Warn, SysLog
 
-env = environ.Env()
-M_ES_ENDPOINT_URL = env('M_ES_ENDPOINT_URL')
+
+
+
+M_ES_ENDPOINT_URL = os.environ.get('M_ES_ENDPOINT_URL')
 m_client = Elasticsearch(M_ES_ENDPOINT_URL)
 
-C_ES_ENDPOINT_URL = env('C_ES_ENDPOINT_URL')
+
+
+C_ES_ENDPOINT_URL = os.environ.get('C_ES_ENDPOINT_URL')
 c_client = Elasticsearch(C_ES_ENDPOINT_URL)
 es_clients = { 'm': m_client, 'c': c_client }
 
@@ -34,6 +40,8 @@ def es_search(index, query, raw_data=False, exclude_id=False, cluster='m'):
         else:
             return resp['hits']['hits']
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        SysLog('ES_SRCH_ERR', f"{e.args[0]} In index: {index} ", traceback=stack_trace)
         raise Exception('DB_SRCH_ERR', {'msg': f"es_search[E.M.]: {e}"})
 
 
@@ -42,6 +50,8 @@ def es_count(index, query, cluster='m'):
         resp = es_clients[cluster].count(index=index, body=query)
         return resp['count']
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('ES_COUNT_ERR', f"{e.args[0]} In index: {index} ", traceback=stack_trace)
         raise Exception('DB_COUNT_ERR', {'msg': f"es_count[E.M.]: {e}"})
 
 
@@ -52,6 +62,8 @@ def es_update_by_id(index, id, set_obj=None, script=None, cluster='m'):
         resp = es_clients[cluster].update(index=index, id=id, body=body)
         return resp['result']
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('ES_UPDATE_ERR', f"{e.args[0]} In index: {index} ", traceback=stack_trace)   
         raise Exception('DB_UPDATE_ERR', {'msg': f"es_update_by_id[E.M.]: {e}"})
 
 
@@ -61,6 +73,8 @@ def es_insert(index, doc, id=None, cluster='m'):
         resp = es_clients[cluster].index(index=index, id=id, document=doc)
         return resp['result']
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('ES_INS_ERR', f"{e.args[0]} In index: {index} ", traceback=stack_trace)    
         raise Exception('DB_INS_ERR', {'msg': f"es_insert[E.M.]: {e}"})
 
 
@@ -70,7 +84,8 @@ def es_find_by_id(index, id, cluster='m'):
         resp = es_clients[cluster].get(index=index, id=id)
         return resp
     except Exception as e:
-        print('ID excp:', e)
+        stack_trace = traceback.format_exc()
+        Error('ES_SRCH_ERR', f"{e.args[0]} In index: {index} ", traceback=stack_trace)    
         raise Exception('DB_SRCH_ERR', {'msg': f"es_find_by_id[E.M.]: {e}"})
 
 
@@ -80,6 +95,8 @@ def es_delete_by_id(index, id, cluster='m'):
         resp = es_clients[cluster].delete(index=index, id=id)
         return resp['result']
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('ES_DEL_ERR', f"{e.args[0]} In index: {index} ", traceback=stack_trace) 
         raise Exception('DB_DEL_ERR', {'msg': f"es_delete_by_id[E.M.]: {e}"})
 
 

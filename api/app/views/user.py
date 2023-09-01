@@ -1,20 +1,21 @@
 import json, requests, time, environ
-import threading
+import threading, os
+import traceback
 from rest_framework.views import APIView
 from operator import itemgetter
 from django.conf import settings
 from app.model.minioModel import minio_client
 from app.model.elasticModel import es_search, es_insert, es_update_by_id
-from app.helper.logger import logger
+
 from app.helper.commonFunction import get_time_stamp as get_ts, gen_rand_str, validate_mob, get_error_response, get_success_response, validate_name, send_mail, is_valid_image, validate_email, validate_otp, validate_dob, handle_exception, forward_exception, is_empty_str, translated_data, translation	
 from ..apps import get_tag_cache	
 from copy import deepcopy
+from app.helper.log_methods import Info, Error, Critical, Warn
 
 # Env Variables	
-env = environ.Env()	
-API_BASE_URL = env('API_BASE_URL')
-MINIO_BUCKET_URL = env('MINIO_BUCKET_URL')	
-from ..apps import get_tag_cache
+API_BASE_URL = os.environ.get('API_BASE_URL')
+MINIO_BUCKET_URL = os.environ.get('MINIO_BUCKET_URL')
+
 
 config = json.load(open('app/config/config.json'))
 
@@ -22,6 +23,7 @@ config = json.load(open('app/config/config.json'))
 ES_INDICES       = config['data']['elastic']['indices']
 PIN_INDEX        = ES_INDICES['pincodes']
 FEEDBACK_INDEX   = ES_INDICES['feedback']
+USER_PERMISSION_INDEX = ES_INDICES["user_permission"]
 EMAIL_VERIFY_INDEX = ES_INDICES["email_verification"]
 TAGS_INDEX       = ES_INDICES['tags']
 USER_INDEX       = ES_INDICES['users']
@@ -104,7 +106,8 @@ def send_verification_email(email: str, mobile: str) -> bool:
         send_mail(EMAIL_SUBJECT, email, content)
         return True
     except Exception as e:
-        logger.error(f"Error processing mail: {e}")
+        stack_trace = traceback.format_exc()
+        Error('MAIL_ERR',f"While processing mail: {e.args[0]}", traceback=stack_trace)
         return False
 
 
@@ -112,6 +115,7 @@ def translatefields(user_info, lang):
     for field in FIELD_LIST:	
         if user_info.get(field) and lang != "en":	
             user_info[field] = translation(user_info[field], field, lang)	
+    Info('LOG', f'translatefields: {user_info}', extra_data = {'lang':lang})
     return user_info	
 
 def get_valid_cache():	
@@ -127,8 +131,9 @@ def get_valid_cache():
             data = TAG_CACHE.get('data')	
         	
         return data	
-    except:	
-        logger.info(f'unable to load the tag cache data')	
+    except Exception as e:	
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', f'unable to load the tag cache data: {e.args[0]}', traceback=stack_trace)
     finally:	
         # release the lock after accessing/modifying the cache	
         TAG_CACHE_LOCK.release() 	
@@ -151,11 +156,13 @@ class MyProfile(APIView):
             save_file_path = f"users/{mob_leading_chars}/{save_file_name}"
 
             if not is_valid_image(ext):
+                Error('INVALID_REQUEST','Unsupported media format!', extra_data = {'ext': ext})
                 raise Exception('UNSUPPORTED_MEDIA', {'subcode': 4152})
 
             minio_client.put_object(APP_BUCKET, save_file_path, user_file, file_size)
             updated_info = {}
             if image_info:
+                Info('LOG', f'Image info found in {IMAGE_INDEX} for user {mobile}', extra_data = {'result':image_info})
                 image_info = image_info[0]
 
                 list_images_user = image_info['u_img']
@@ -167,15 +174,18 @@ class MyProfile(APIView):
                 # ?? use update_by_id here
                 updated_res = es_insert(index=IMAGE_INDEX, doc=image_info, id=image_info.pop('_id'))
             else:
+                Info('LOG', f'Image info NOT found in {IMAGE_INDEX} for user {mobile}')
                 updated_info['u_img'], updated_info['updated_dt'], updated_info['mobile'] = [rand_str], get_ts(), mobile
                 updated_res = es_insert(index=IMAGE_INDEX, doc=updated_info)
 
             if not updated_res:
-                logger.error("Failed to update user-profile picture!")
+                Error('UNKNOWN_ERR',"Failed to update user-profile picture in elastic",extra_data = {'mobile':mobile})
                 return get_error_response(500, 5002)
 
             return {'profile_pic': save_file_name}
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('MINIO_ERR', e.args[0], traceback=stack_trace)
             raise forward_exception(e, 'file_upload')
 
     def scan_data(self, data):
@@ -400,10 +410,10 @@ class MyProfile(APIView):
 
     def get(self, request):
         try:
+            Info('LOG', "My Profile")
             mobile = request._userInfo['mobile']
             lang = request.headers.get('language') or 'en'
             user_info = request._userInfo['record']
-            logger.info(f'----------------- : {user_info}')
             remove_keys = ['profile_ext', 'tag_id']
             user_info = translatefields(user_info, lang)
 
@@ -411,7 +421,8 @@ class MyProfile(APIView):
             if 'profile_pic' in user_info:
                 mob_leading_chars = str(mobile)[:6]
                 user_info['profile_url'] = PROFILE_URL_PREFIX + mob_leading_chars + '/'
-                
+                Info('LOG', f'Profile Pic URL of User: {user_info["profile_url"]}')
+
             # add tag info if tag is available
             if user_info.get('tag_id'):
                 tag_id = user_info['tag_id']
@@ -420,7 +431,7 @@ class MyProfile(APIView):
                 tag_list = TAG_CACHE['tag_list']	
                 target_tag = [tag for tag in tag_list if tag['id'] == tag_id][0]	
                 	
-                user_info['tag_info'] = {	
+                user_info['tag_info'] = {
                     'name'       : target_tag['lang'].get(lang, target_tag['name']),	
                     'id'         : tag_id,	
                     'url_prefix' : TAG_URL_PREFIX,	
@@ -430,9 +441,10 @@ class MyProfile(APIView):
             for key in remove_keys:	
                 if key in user_info:	
                     del user_info[key]	
-            print(f' this is userinfo  : {user_info}')	
             return get_success_response(200, 2001, user_info)	
-        except Exception as e:	
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)	
             return handle_exception(forward_exception(e, 'myProfile-get[view]'), request)
 
     def post(self, request):
@@ -445,17 +457,19 @@ class MyProfile(APIView):
             # validate request
             key_to_update = set(list(request.POST.keys()) + list(request.FILES.keys()))
             if not len(key_to_update):
-                logger.error("No Key/s to update!!")
+                Error('INVALID_REQUEST','No Key/s to update profile!')
                 return get_error_response(400, 4001, 'No Key/s to update!')
 
             if not key_to_update.issubset(UPDATE_KEYS):
-                logger.error("Unknown key/s for update!")
+                Error('INVALID_REQUEST','Unknown key/s for update profile!')
                 return get_error_response(400, 4001, 'Unknown key/s for update!')
             
             resp = self.scan_data(update_data)
             if 'err' in resp:
+                Error('UNKNOWN_ERR', f'error while scan data: {resp["err"]}')
                 return get_error_response(*resp['err'])
             update_obj, reset_obj = resp['data'], resp['reset']
+
             # validate image as text data is clean
             if('profile_pic' in update_files):
                 profile_obj = self.file_upload(mobile, update_files['profile_pic'])
@@ -470,6 +484,7 @@ class MyProfile(APIView):
                 sec_email.append(user_info['email'])
                 sec_email = list(set(sec_email))
 
+                Info('LOG', 'sec email of user', extra_data = {'sec_email': sec_email})
                 update_obj['sec_email'] = sec_email
 
             # unset keys
@@ -481,8 +496,10 @@ class MyProfile(APIView):
             if 'email' in update_obj:
                 if user_info.get('email') != update_obj['email']:
                     update_obj["email_vrf"] = 0
+                    Info('LOG', 'Sending verification mail because new mail is found')
                     send_verification_email(update_obj['email'], mobile)
                 elif user_info.get("email_vrf") == 0:
+                    Info('LOG', 'Sending verification mail because new mail is found')
                     send_verification_email(update_obj['email'], mobile)
 
             # update new values
@@ -504,11 +521,13 @@ class MyProfile(APIView):
             
             updatedRes = es_insert(index = USER_INDEX , doc = user_info , id = user_id)
             if(not updatedRes):
-                logger.error("Failed to update user-profile!") 
+                Error('UNKNOWN_ERR',"Failed to update user-profile in elastic")
                 return get_error_response(500, 5002)
 
             return get_success_response(200, 2003)
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'myProfile-post[view]'), request)
 
 
@@ -516,6 +535,7 @@ class SetPincode(APIView):
    def get(self, request):
     try:
         if 'pincode' not in request.data:
+            Error('INVALID_HEADERS','pincode not in request data')
             return get_error_response(400, 4002)
 
         pincode = request.data['pincode']
@@ -532,9 +552,11 @@ class SetPincode(APIView):
                 
             return get_success_response(200, 2001, res)
         else: 
-            logger.error('Invalid pin entered!')
+            Error('INVALID_REQUEST',"Invalid pin entered!", extra_data = {'pincode':pincode})
             return get_error_response(400, 40010)
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
         return handle_exception(forward_exception(e, 'setPincode[view]'), request)
    
 
@@ -544,23 +566,28 @@ class UserFeedback(APIView):
         mobile = request._userInfo['mobile']
 
         if 'feedback' not in request.data:
+            Error('INVALID_HEADERS', 'feedback not in req data')
             return get_error_response(400, 4002)
 
         feedback = request.data['feedback']
         if not isinstance(feedback, str):
-            logger.error("feedback should be a valid text string!")
+            Error('INVALID_REQUEST', 'Feedback should be a valid text string!' )
             return get_error_response(400, 4001, "feedback should be a valid text string!")
 
         if (len(feedback) > 300):
-            logger.error("Max feedback length should be less than 300 characters!")
+            Error('INVALID_REQUEST', "Max feedback length should be less than 300 characters!")
             return get_error_response(429, 4293, "Max feedback length should be less than 300 characters!")
         
         f_obj = { 'feedback': feedback, 'mobile': mobile, 'created_dt': get_ts() }
+        Info('LOG', f'UserFeedback: {f_obj}')
         es_insert(FEEDBACK_INDEX, f_obj)
 
         return get_success_response(200, 2001)
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
         return handle_exception(forward_exception(e, 'userFeedback[view]'), request)
+
 
 class Tags(APIView):	
     def get(self, request):	
@@ -571,6 +598,8 @@ class Tags(APIView):
             data_copy = translated_data(data_copy, lang)	
             return get_success_response(200, 2001, data_copy)	
         except Exception as e:	
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'tags[view]'), request)
 
 class SendEmail(APIView):
@@ -582,15 +611,20 @@ class SendEmail(APIView):
             email_vrf = user_info.get("email_vrf", None)
 
             if email and not email_vrf:
+                Info('LOG', 'Sending verification email', extra_data = {'mobile':mobile, 'email': email})
                 mail_sent = send_verification_email(email, mobile)
                 if mail_sent:
+                    Info('LOG', f'Mail is sent to the email: {email}')
                     return get_success_response(200, 2004)
                 else:
+                    Error('MAIL_ERR', f'Error while sending email: {email}' )
                     return get_error_response(500, 5001)
             else:
+                Error('INVALID_REQUEST')
                 return get_error_response(400, 4001)
         except Exception as e:
-            logger.error(f" While Sending Mail: {e}")
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'sendEmail[view]'), request)
 
 
@@ -617,12 +651,15 @@ class VerifyEmail(APIView):
             try:
                 search_result = es_search(EMAIL_VERIFY_INDEX, salt_query)
                 if len(search_result) == 0:
+                    Error('INVALID_REQUEST', "No Recent Email Request Found!" )
                     return get_error_response(400, 4012, "No Recent Email Request Found!")
                 else:
                     email_info = search_result[0]
                     email_id = email_info['_id'] #this is not email_id, this is email's ID in email_verification index.
                     mobile = email_info['mobile']
                     email = email_info["email"]
+                    Info('LOG','Search result of email verify index', extra_data = {'result':search_result})
+                    
                     if email_info['status'] == 0:
                         es_update_by_id(EMAIL_VERIFY_INDEX, email_id, { 'status' : 1 })
                         searchQuery = {
@@ -648,15 +685,70 @@ class VerifyEmail(APIView):
                         try:
                             es_update_by_id(USER_INDEX, user_id, {"email_vrf": 1})
                         except Exception as e:
-                            logger.error(f"While upserting mail: {e}")
+                            stack_trace = traceback.format_exc()
+                            Error('UNKNOWN_ERR', f"While Upserting Email Vrf: {e.args[0]}", traceback=stack_trace)
                             return get_error_response(500, 5001)
                         return get_success_response(200, 2005)
                     else:
+                        Error('INVALID_REQUEST', "email_info['status'] NOT equal to 0")
                         return get_error_response(401, 4014)
             except Exception as e:
-                logger.error(f" While Verify Email Token: {e}")
+                stack_trace = traceback.format_exc()
+                Error('UNKNOWN_ERR', f"While Verify Email Token: {e.args[0]}", traceback=stack_trace)
                 return get_error_response(500, 5001)
         except Exception as e:
-            logger.error(f" While Verify Email: {e}")
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'VerifyEmail'), request)
 
+
+
+class UserAppPermission(APIView):
+   def post(self, request):
+    try:
+        mobile = request._userInfo['mobile']
+    
+        required_fields = ['call_logs', 'contacts', 'phone', 'caller_id', 'notification', 'disp_ovr_oth_app', 'app_v']
+
+        if not all(field in request.data for field in required_fields):            
+            Error('INVALID_HEADERS', 'Keys are missing!')
+            return get_error_response(400, 4002)
+
+
+        call_logs = request.data['call_logs']
+        contacts = request.data['contacts']
+        phone = request.data['phone']
+        caller_id = request.data['caller_id']
+        notification = request.data['notification']
+        disp_ovr_oth_app = request.data['disp_ovr_oth_app']
+        app_v = request.data['app_v']
+
+        permission_obj = { 'call_logs': call_logs, 'contacts': contacts, 'phone':phone, 
+            'caller_id':caller_id, 'notification':notification, 
+            'disp_ovr_oth_app':disp_ovr_oth_app, 'app_v':app_v
+        }
+
+        Info('LOG','User app permission object', extra_data = permission_obj )
+
+        # Search User permission already exists
+        query = { "query": { "bool": { "must": [ {"match": {"mobile": mobile}} ] } } }
+        search_result = es_search(USER_PERMISSION_INDEX, query)
+        Info('LOG','Search result from user perimssion index', extra_data = {'result': search_result} )
+
+        if len(search_result) == 0:
+            permission_obj['creation_time'] = get_ts()
+            permission_obj['mobile'] = mobile
+            es_insert(USER_PERMISSION_INDEX, permission_obj)
+            Info('LOG','User app permission object inserted')
+            return get_success_response(200, 2001)
+        else:
+            user_per_id = search_result[0]['_id']
+            permission_obj['updation_time'] = get_ts()
+            es_update_by_id(USER_PERMISSION_INDEX, user_per_id, permission_obj)
+            Info('LOG','User app permission object updated')
+            return get_success_response(200, 2001)
+            
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
+        return handle_exception(forward_exception(e, 'userPermission[view]'), request)

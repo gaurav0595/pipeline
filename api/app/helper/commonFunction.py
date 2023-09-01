@@ -1,9 +1,8 @@
-import math, smtplib, re, string, random
+import math, smtplib, re, string, random, os
 import requests, json, jwt
 from urllib import parse
 from bson import json_util
 import random
-import environ
 from time import time
 from operator import itemgetter
 
@@ -17,10 +16,11 @@ from django.conf import settings
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
-from app.helper.logger import logger
+
 from app.model.elasticModel import es_search
 import sys
 import traceback
+from app.helper.log_methods import Info, Error, Critical, Warn, SysLog
 
 # Import json configs
 successMessage = json.load(open('app/config/success_message.json'))
@@ -62,12 +62,12 @@ SMPP_SENDER_ID   = config['services']['smpp']['user_id']
 ALLOWED_IMG_EXT  = config['settings']['allowedImgExt']
 
 # GET ENV variables
-env = environ.Env()
+CURRENT_ENV = os.environ.get('CURR_ENV')
+JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
+DEFAULT_AES_KEY = os.environ.get('AES_DAK')
+SERVER_PRIVATE_KEY = os.environ.get('AES_SPK')
+TEST_KEY = os.environ.get('AES_TEST_KEY')
 
-JWT_SECRET_KEY = env('JWT_SECRET_KEY')
-DEFAULT_AES_KEY = env('AES_DAK')
-SERVER_PRIVATE_KEY = env('AES_SPK')
-TEST_KEY = env('AES_TEST_KEY')
 
 #field indices for lang
 FIELD_TYPES  = config['data']['field_types']
@@ -87,17 +87,25 @@ def validate_mob(m):
     Pattern = re.compile("(0|91)?[6-9][0-9]{9}")
    
     if(len(m) == 10):
-        if(Pattern.match(m) == None): return False
+        if(Pattern.match(m) == None):
+            Info('LOG', 'validate_mob: Mobile is not match with pattern', extra_data = {'mobile': m}) 
+            return False
         return True
     elif(len(m) > 10 and len(m) <= 14):
         mob = m[-10:]
         if(Pattern.match(mob)):
             prefix = m[:-10]
             MOBPREFIXES = ["0", "+91", "+91 ", "+91-", "+91-", "91"]
-            if prefix in MOBPREFIXES: return True
-            else: return False
-        else: return False
-    else: return False
+            if prefix in MOBPREFIXES: 
+                return True
+            else: 
+                Info('LOG', f'validate_mob: prefix is not in MOBPREFIXES list: {prefix} , mobile: {m}')
+                return False
+        else: 
+            return False
+    else:
+        Info('LOG', f'validate_mob: len of mobile is not in between 10 to 14: mobile: {m}') 
+        return False
 
 def translated_data(data, lang = "en"):
     if (lang != "en"):
@@ -111,6 +119,7 @@ def translated_data(data, lang = "en"):
 def translation(field_value ,field, lang = 'en'):
     try:
         word_list = field_value.lower().split(" ")
+        Info("LOG", f"translation request recieved in {lang}", extra_data={ "word_list" :  word_list })
         translation_query = {
          "query": {
             "terms": {
@@ -126,6 +135,7 @@ def translation(field_value ,field, lang = 'en'):
             translation_data = (es_search(index, translation_query, exclude_id=True))
         translation_dict = {entry["n"]: entry["lang"] for entry in translation_data}
         if not translation_dict:
+            Info('LOG', 'translation[c.f]: translation_dict is none so returning field_value', extra_data = {'field_value':field_value})
             return field_value
         translated_word = ""
         for word in word_list:
@@ -136,7 +146,9 @@ def translation(field_value ,field, lang = 'en'):
 
         translated_word = translated_word.rstrip()
         return translated_word
-    except:
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('TRANSLATION_ERR', e.args[0], traceback=stack_trace, extra_data={ "field_value" : field_value, "field" : field, "lang" : lang })
         return field_value
 
 
@@ -155,6 +167,7 @@ def send_mail(subject, email, content):
         msg['From'] = EMAIL_FROM
         msg['To'] = email
 
+        Info('LOG', 'send mail request', extra_data = {'subject': subject, 'to': email})
         msg.set_content(content, subtype='html')
 
         with smtplib.SMTP(EMAIL_URL, EMAIL_PORT) as smtp:
@@ -166,8 +179,11 @@ def send_mail(subject, email, content):
             smtp.quit()
             return True
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        SysLog('MAIL_ERR', f" {e.args[0]} and email is: {email} ", traceback=stack_trace)     
         raise Exception('UNKNOWN_ERR', { 'msg': f"send_mail: {e}" })
 
+#send_mail("Server started", "mohit.a@sarv.com","no message")
 
 def send_sms(mobile, otp):
     otp_msg = OTP_MSG.replace('{{otp}}', str(otp)).replace('{{other_msg}}', "Kc7yL4%2B17G%2B")
@@ -175,8 +191,11 @@ def send_sms(mobile, otp):
     headers = { 'cache-control': "no-cache" }
     
     try:
+        Info('LOG', 'send sms request', extra_data = {'mobile': mobile, 'otp': otp})
         resp = requests.request("GET", sms_url, headers = headers)
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('SMS_ERR', f"While sending the SMS: {e.args[0]} and mobile is: {mobile} ", traceback=stack_trace)  
         raise Exception('Error While sending the SMS', { 'msg': f"sendSMS: {e}" })
 
 
@@ -186,6 +205,8 @@ def otpgen():
         otp = random.randint(100000, 999999)
         return int(otp)
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)  
         raise Exception('UNKNOWN_ERR', { 'msg': f"otpgen: {e}" })
 
 
@@ -196,10 +217,13 @@ def originate_call(mobile):
 
     URL = FC_URL.replace("{{callerId}}", caller_id).replace("{{mobile}}", mobile)
     try:
+        Info('LOG', 'originate call request', extra_data = {'mobile': mobile})
         response = requests.request("POST", URL, headers = { 'Authorization': FC_AUTH_TOKEN })
         return response.text
     except Exception as e:
-        raise Exception('UNKNOWN_ERR', { 'msg': f"originateCall: {e}" })
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', f"While originate_call: {e.args[0]} and mobile is: {mobile}", traceback=stack_trace)  
+        raise Exception('UNKNOWN_ERR', { 'msg': f"originate_call: {e}" })
 
 
 def otp_call(mobile, otp):
@@ -209,9 +233,12 @@ def otp_call(mobile, otp):
         url = CO_URL.replace("{{mobile}}", mobile).replace("{{cUser}}", CO_USER).replace("{{cToken}}", CO_TOKEN)\
                 .replace("{{cPlanId}}", CO_PLANID).replace("{{cIvrId}}", CO_IVRID).replace("{{otp}}", otp)
         try:
+            Info('LOG', 'call otp request', extra_data = {'mobile': mobile, 'otp': otp})
             response = requests.request("GET", url)
             return response.text
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', f"While otp_call: {e.args[0]} and mobile is: {mobile}", traceback=stack_trace) 
             raise Exception('UNKNOWN_ERR', { 'msg': f"otp_call: {e}" })
 
 
@@ -229,11 +256,14 @@ def gen_user_id():
 
 def generate_token(payload):
     try:
+        Info('LOG', 'generate token request', extra_data = {'gt_payload':payload})
         encoded = jwt.encode(payload, JWT_SECRET_KEY, algorithm = "HS256")
         decoded = str(encoded)
 
         return json.loads(json_util.dumps({'data': { 'token': decoded }}))
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('TOKEN_ERR', f"While generate_token: {e.args[0]} ", traceback=stack_trace, extra_data = payload) 
         raise Exception('TOKEN_ERR', { 'msg': f"generate_token: {e}", 'code': 500, 'subcode': 5001 })
 
 
@@ -242,32 +272,43 @@ def decode_token(token):
         decode_token = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
         return decode_token 
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('TOKEN_ERR', f"While decode_token: {e.args[0]} ", traceback=stack_trace, extra_data = token) 
         raise Exception('TOKEN_ERR', { 'msg': f"decode_token: {e}" })
 
 
 def validate_email(email):
     try:
+        Info('LOG', 'validate email request', extra_data = {'email': email})
         regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         if(re.fullmatch(regex, email)): return True
         return False
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', f"While validate_email: {e.args[0]} and email is: {email} ", traceback=stack_trace) 
         raise Exception('UNKNOWN_ERR', { 'msg': f"validate_email: {e}" })
   
 
 def is_valid_image(ext):
     try: 
-       if ext in ALLOWED_IMG_EXT: return True
-       return False 
+        if ext in ALLOWED_IMG_EXT:
+            return True
+        Info('LOG', f'is_valid_image: ext is not in ALLOWED_IMG_EXT: {ext}')
+        return False 
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', f"While is_valid_image: {e.args[0]}", traceback=stack_trace) 
         raise Exception('UNKNOWN_ERR', { 'msg': f"is_valid_image: {e}" })
     
 
 def validate_name(name):
     try: 
-      regex_name = re.compile(r'([a-z]+)( [a-z]+)*( [a-z]+)*$', re.IGNORECASE)
-      if(regex_name.search(name)): return True
-      return False     
+        regex_name = re.compile(r'([a-z]+)( [a-z]+)*( [a-z]+)*$', re.IGNORECASE)
+        if(regex_name.search(name)): return True
+        return False     
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', f"While validate_name: {e.args[0]} and name is: {name}", traceback=stack_trace) 
         raise Exception('UNKNOWN_ERR', { 'msg': f"validate_name: {e}" })
 
 
@@ -276,11 +317,14 @@ def validate_dob(date):
         day, month, year = date.split('/')
         dt(int(year), int(month), int(day))
         if(dt.now().year < int(year) + 14):
+            Error('INVALID_REQUEST', "Age is too short!", extra_data = {'date': date}) 
             raise Exception('INVALID_REQUEST', { 'subcode': 40014, 'msg': 'Age is too short!' })
         return True
     except ValueError:
         return False
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', f"While validate_dob: {e.args[0]}", traceback=stack_trace) 
         raise forward_exception(e, 'validate_dob')
 
 
@@ -348,6 +392,8 @@ def decrypt_data(enc_data, key):
         data = unpad(aes.decrypt(data_bytes), AES.block_size)
         return data.decode()
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('INVALID_ENC', f"While decrypt_data: {e.args[0]}", traceback=stack_trace) 
         raise Exception('INVALID_ENC', { 'msg': str(e) })
 
 
@@ -364,6 +410,8 @@ def encrypt_data(data, key):
         b64_data = b64encode(enc_data).decode('utf-8')
         return b64_data
     except Exception as e:
+        stack_trace = traceback.format_exc()
+        Error('INVALID_ENC', f"While encrypt_data: {e.args[0]}", traceback=stack_trace) 
         raise Exception('INVALID_ENC', { 'msg': str(e), 'code': 500, 'subcode': 5001 })
 
 
@@ -400,33 +448,37 @@ def handle_exception(e, request):
             code, subcode = str(code), str(subcode)
             errData = e.args[1] if len(e.args) > 1 and type(e.args[1]) is dict else None
             if not errData:
-                logger.error(errDesc + errorMessage[code][subcode])
+                Error('UNKNOWN_ERR', f"handle_exception[C.F.]: {errDesc + errorMessage[code][subcode]}" )
                 return get_error_response(code, subcode)
             code = str(get_val(errData, 'code', code))
             subcode = str(get_val(errData, 'subcode', subcode))
             msg = get_val(errData, 'msg', errorMessage[code][subcode])
-            # logger.info(f'---hi--{code} {subcode} {msg}')
-            logger.error(errDesc + msg)
+            Error('UNKNOWN_ERR', f"handle_exception[C.F.]: {errDesc + msg}" )
             return get_error_response(code, subcode)
         
         errName = e.args[0]
         if(errName in err_codes):
             code, subcode, errDesc = itemgetter('code', 'subcode', 'msg')(err_codes[errName])
-            if code is 500:
+            if code == 500:
                 recipient_list = [admin[1] for admin in settings.ADMINS]
                 name = request._userInfo['record'].get('first_name', None)
                 if name is None:
-                    subject = 'Server Exception Occurred in Naam Production by {}'.format(request._userInfo['mobile'])
+                    subject = f"Server Exception Occurred in Naam {CURRENT_ENV} by {request._userInfo['mobile']}"
                 else:
-                    subject = 'Server Exception Occurred in Naam Production by {} and name is {}'.format(
-                        request._userInfo['mobile'], name)
+                    subject = f"Server Exception Occurred in Naam {CURRENT_ENV} by {request._userInfo['mobile']} and name is {name}"
                 send_mail(subject, recipient_list, get_error_data(errDesc, code, subcode))
+
+            Error(errName, errDesc, traceback=traceback.format_exc())
             return get_error_data(errDesc, code, subcode)
         else:
-            logger.error(err_codes['UNKNOWN_ERR']['msg'] + str(e))
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', f"handle_exception[C.F.]: {e.args[0]}", traceback=stack_trace)
+
             if str(e).startswith('JSON parse error'):
+                Error('UNKNOWN_ERR', 'handle_exception[C.F.]: Invalid JSON string!')
                 return get_error_response(400, 4001, 'Invalid JSON string!')   
             elif str(e).startswith('Expecting value'):
+                Error('UNKNOWN_ERR', 'handle_exception[C.F.]: Invalid request format!')
                 return get_error_response(400, 4001, 'Invalid request format!')
             else:
                 exc_type, exc_value, tb = sys.exc_info()
@@ -434,12 +486,13 @@ def handle_exception(e, request):
                 recipient_list = [admin[1] for admin in settings.ADMINS]
                 name = request._userInfo['record'].get('first_name', None)
                 if name is None:
-                    subject = 'Server Exception Occurred in Naam Production by {}'.format(request._userInfo['mobile'])
+                    subject = f"Server Exception Occurred in Naam {CURRENT_ENV} by {request._userInfo['mobile']}"
                 else:
-                    subject = 'Server Exception Occurred in Naam Production by {} and name is {}'.format(
-                        request._userInfo['mobile'], name)
+                    subject = f"Server Exception Occurred in Naam {CURRENT_ENV} by {request._userInfo['mobile']} and name is {name}"
                 send_mail(subject, recipient_list, message)
+
             return get_error_response(500, 5001)
     except Exception as e:
-        logger.error(f"handle_exception[C.F.]: {e}")
+        stack_trace = traceback.format_exc()
+        Error('UNKNOWN_ERR', f"handle_exception[C.F.]: {e.args[0]}", traceback=stack_trace)
         return get_error_response(500, 5001)

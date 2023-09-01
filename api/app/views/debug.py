@@ -1,13 +1,14 @@
-import json, requests
+import json, requests, os
 from rest_framework.views import APIView
-
+import traceback
+from app.helper.log_methods import Info, Error, Critical, Warn, SysLog
 from app.model.elasticModel import es_search, es_delete_by_id
 from app.helper.commonFunction import get_error_response, get_success_response, encrypt_data, decrypt_data, \
     handle_exception, forward_exception
-from app.helper.logger import logger
-import environ
-env = environ.Env()
-M_ES_ENDPOINT_URL = env('M_ES_ENDPOINT_URL')
+
+
+
+M_ES_ENDPOINT_URL = os.environ.get('M_ES_ENDPOINT_URL')
 
 config = json.load(open('app/config/config.json'))
 USER_INDEX = config['data']['elastic']['indices']['users']
@@ -34,6 +35,8 @@ class EncryptData(APIView):
             enc = encrypt_data(data_to_encrypt, enc_key)
             return get_success_response(200, 2001, enc)
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'encryptData[view]'), request)
 
 class DecryptData(APIView):
@@ -50,6 +53,8 @@ class DecryptData(APIView):
 
             return get_success_response(200, 2001, decrypted_data)
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'decryptData[view]'), request)
 
 class RemoveAccount(APIView):
@@ -64,7 +69,8 @@ class RemoveAccount(APIView):
                 "7503873087",  # Mayank
                 "9013623264",  # Lokesh
                 "8076364873",  # requested to add by mayank
-                "9887105333"  # abhinav
+                "9887105333",  # abhinav
+                "7340470426" #prem
             ]
 
             if 'mobile' not in request.data:
@@ -83,6 +89,8 @@ class RemoveAccount(APIView):
             es_delete_by_id(USER_INDEX, user_res[0]['_id'])
             return get_success_response(200, 2001, mobile, "Account removed successfully!")
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'removeAccount[view]'), request)
 
 

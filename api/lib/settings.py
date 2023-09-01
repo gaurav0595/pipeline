@@ -11,8 +11,15 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
+from app.helper.log_methods import SysLog
+
 import os
 import environ
+import redis
+import threading
+import json
+import time
+from django.core.cache import cache
 
 """ 
     Auth Views 
@@ -24,11 +31,13 @@ import environ
 """
 
 # Get Environment (development/production)
-env = environ.Env()
-environ.Env.read_env()
-SERVER_ENV = env('SERVER_ENV')
+
+
+
+
+SERVER_ENV = os.environ.get('SERVER_ENV')
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('DJANGO_SECRET_KEY')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -54,6 +63,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'app.middleware.request.ThreadLocalMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -158,3 +168,89 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/') 
 
 TAGS_CACHE = {}
+
+
+# settings to turn on/off debug logs for specific users
+stop_thread = threading.Event()
+
+# Redis Connection
+REDIS_HOST = os.environ.get('REDIS_HOST')
+REDIS_PORT = os.environ.get('REDIS_PORT')
+
+redis_connection = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+# redis_connection = redis.Redis(host='10.110.146.77', port=6379, decode_responses=True)
+# redis_connection = redis.Redis(host='65.21.6.188', port=30004, decode_responses=True)
+# redis_connection = redis.Redis(host='redis-dev-0.redis-dev.naam-dev.svc.cluster.local', port=6379, decode_responses=True)
+
+if redis_connection.ping():
+    pass
+else:
+    SysLog('REDIS_ERR', 'Redis Connection Lost')
+
+
+
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
+
+debug_filter_obj = {"mobile" : ["9587714529", "6378814079"]}
+
+# set default values for DEBUG MODE
+cache.set('DEBUG_CHECK_INTERVAL', 60, None )
+cache.set('DEBUG_LOGS', "False", None)
+cache.set('DEBUG_FILTER', debug_filter_obj, None)
+
+# Function to check and update log-debug mode
+def check_and_update_debug_mode():
+    global stop_thread
+
+    debug_vals = redis_connection.mget(
+        ['DEBUG_LOGS', 'DEBUG_FILTER', 'DEBUG_INTERVAL', 'API_DEBUG'])  # get all values from redis
+
+    
+    debug_logs_val, debug_filter_val, debug_check_interval_val, api_debug_val = debug_vals
+    if debug_check_interval_val:
+        debug_check_interval_val = int(debug_check_interval_val)
+
+    if debug_logs_val:
+        if debug_logs_val != cache.get('DEBUG_LOGS'):
+            cache.set('DEBUG_LOGS',debug_logs_val)
+            SysLog('LOG_DEBUG_INFO', "Debug mode updated:" + str(debug_logs_val) + "and in cache" + str(cache.get('DEBUG_LOGS')))
+
+    # if api_debug_val:
+    #     api_debug_val = True if api_debug_val == 'True' else False
+    #     if api_debug_val != API_DEBUG:
+    #         API_DEBUG = api_debug_val
+    #         SysLog('API_DEBUG_INFO', "API debug mode updated:" + str(api_debug_val))
+    #         all_api_keys = redis_connection.keys('*:API_DEBUG')
+    #         for api_key in all_api_keys:
+    #             APIS_FOR_DEBUG_LOG.append(api_key)  # get all API keys from redis
+
+    if debug_filter_val:
+        debug_filter_val = json.loads(debug_filter_val)
+        if debug_filter_val != cache.get('DEBUG_FILTER'):
+            cache.set('DEBUG_FILTER',debug_filter_val)
+            SysLog('DEBUG_FILTER_INFO', "Debug filter updated:" + str(debug_filter_val) + " and in cache" + str(cache.get('DEBUG_FILTER')))  # get all API keys from redis
+
+    if debug_check_interval_val and (debug_check_interval_val != cache.get('DEBUG_CHECK_INTERVAL')):
+        stop_thread.set()
+        cache.set('DEBUG_CHECK_INTERVAL', debug_check_interval_val)
+        stop_thread.clear()
+        return
+    
+def run_periodically():
+    global stop_thread
+    while not stop_thread.is_set():
+        check_and_update_debug_mode()
+        time.sleep(cache.get('DEBUG_CHECK_INTERVAL'))
+
+
+thread = threading.Thread(target=run_periodically)
+thread.start()

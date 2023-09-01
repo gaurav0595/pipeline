@@ -1,5 +1,6 @@
 from app.helper.commonFunction import get_error_response
-from app.helper.logger import logger
+from app.helper.log_methods import Info, Error, Critical, Warn, SysLog
+
 
 """ 
     Error Views
@@ -8,5 +9,5 @@ from app.helper.logger import logger
     @desc: custom error handlers for http codes
 """
 def invalid_url(request, exception):
-    logger.info('Invalid url: %s', request.path)
+    Error('INVALID_URL', extra_data = {'result':request.path} )
     return get_error_response(404, 4042, "Invalid URL called!")

@@ -1,16 +1,17 @@
-import json,requests, environ
-
+import json,requests
+import traceback, os
+from app.helper.log_methods import Info, Error, Critical, Warn, SysLog
 from rest_framework.views import APIView
 
-from app.helper.logger import logger
+
 from app.helper.commonFunction import get_error_response, forward_response, encrypt_data, decrypt_data, handle_exception, forward_exception
 
 config = json.load(open('app/config/config.json'))
 
 # read env
-env = environ.Env()	
-MINIO_BUCKET_URL = env('MINIO_BUCKET_URL')	
-SEARCH_URL       = env('API_SEARCH_URL')	
+MINIO_BUCKET_URL = os.environ.get('MINIO_BUCKET_URL')	
+SEARCH_URL       = os.environ.get('API_SEARCH_URL')	
+
 
 # index/collections
 SEARCH_INDEX   = config['data']['elastic']['indices']['search']
@@ -28,19 +29,21 @@ class SearchNumber(APIView):
             user_mobile = request._userInfo['mobile']
 
             if 'data' not in request.data or not isinstance(request.data['data'], str):
-                logger.error("Encrypted data not found!")
+                Error('INVALID_REQUEST',"Encrypted data not found!")
                 return get_error_response(400, 4002)
 
             req_data = request.data['data']
             req_data = json.loads(decrypt_data(req_data, cgk))
 
             if 'mobile' not in req_data or 'src' not in req_data:
+                Error('INVALID_HEADERS', 'mobile or src not found')
                 return get_error_response(400, 4002)
 
             search_mob = req_data['mobile']
             src = req_data['src']
 
             if src not in CALL_SEARCH_TYPES:
+                Error('INVALID_REQUEST', "Unknown source of search!", extra_data = {'src': src})
                 return get_error_response(400, 4001, "Unknown source of search!")
 
             payload = {
@@ -50,8 +53,11 @@ class SearchNumber(APIView):
                 'lang': request.headers.get('language') or 'en'
             }
 
+            Info('LOG', 'payload of single search', extra_data = payload)
             res = requests.post(SEARCH_URL + 'api/v1/micro/searchNumber', json=payload)
+            Info('LOG','Search status came from micro server', extra_data = {'result':res.status_code})
 
+            
             status_code = res.status_code
             search_info = res.json()
 
@@ -60,6 +66,8 @@ class SearchNumber(APIView):
 
             return forward_response(status_code, search_info)
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'searchNumber[view]'), request)
 
 
@@ -71,23 +79,26 @@ class SearchMultiNumber(APIView):
             user_mobile = request._userInfo['mobile']
 
             if 'data' not in request.data or not isinstance(request.data['data'], str):
-                logger.error("Encrypted data not found!")
+                Error('INVALID_REQUEST',"Encrypted data not found!")
                 return get_error_response(400, 4002)
 
             req_data = request.data['data']
             req_data = json.loads(decrypt_data(req_data, cgk))
 
             if 'mobile_list' not in req_data or 'src' not in req_data:
+                Error('INVALID_HEADERS', 'mobile_list or src not in req_data')
                 return get_error_response(400, 4002)
 
             search_mobs = req_data['mobile_list']
 
             if type(search_mobs) is not list:
+                Error('INVALID_REQUEST', 'type of search_mobs is not list')
                 return get_error_response(400, 4001)
 
             src = req_data['src']
 
             if src not in CALL_SEARCH_TYPES:
+                Error('INVALID_REQUEST', "Unknown source of search!", extra_data = {'src': src})
                 return get_error_response(400, 4001, "Unknown source of search!")
 
             payload = {
@@ -97,7 +108,11 @@ class SearchMultiNumber(APIView):
                 'lang': request.headers.get('language') or 'en'
             }
 
+            Info('LOG','payload of multi search', extra_data = payload)
             res = requests.post(SEARCH_URL + 'api/v1/micro/searchMultiNumber', json=payload)
+
+            Info('LOG','Multi search status came from micro server', extra_data = {'result':res.status_code})
+            
 
             status_code = res.status_code
             search_info = res.json()
@@ -106,4 +121,6 @@ class SearchMultiNumber(APIView):
 
             return forward_response(status_code, search_info)
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('UNKNOWN_ERR', e.args[0], traceback=stack_trace)
             return handle_exception(forward_exception(e, 'searchNumber[view]'), request)

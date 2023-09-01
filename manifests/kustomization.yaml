@@ -5,6 +5,6 @@ resources:
   - deployment.yaml
 
 images:
-  - name: gaurav112/myapp
-    newName: gaurav112/myapp
-    newTag: $TAG
+  - name: dev-registry.sarv.com/naam-dev/naam-dev-api-backend
+    newName: dev-registry.sarv.com/naam-dev/naam-dev-api-backend
+    newTag: $VERSION

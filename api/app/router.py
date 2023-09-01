@@ -1,6 +1,6 @@
 from django.urls import path
 from .views.auth import CreateToken, Login, Signup
-from .views.user import MyProfile, SetPincode, UserFeedback, Tags, SendEmail, VerifyEmail
+from .views.user import MyProfile, SetPincode, UserFeedback, Tags, SendEmail, VerifyEmail, UserAppPermission
 from .views.search import SearchNumber, SearchMultiNumber
 from .views.util import GetState, GetCity, SetLang, SetLangImage, GetCountry
 from .views.debug import RemoveAccount, EncryptData, DecryptData, Search
@@ -23,6 +23,7 @@ urlpatterns = [
     path('user/set_pincode', SetPincode.as_view(), name = 'SetPincode'),
     path('user/tags', Tags.as_view(), name = 'Tags'),
     path('user/feedback', UserFeedback.as_view(), name = 'UserFeedback'),
+    path('user/user_permission', UserAppPermission.as_view(), name = 'UserAppPermission'),
 
     # Util Routes
     path('set_lang', SetLang.as_view(), name = 'SetLang'),

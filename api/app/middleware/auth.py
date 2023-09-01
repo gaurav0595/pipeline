@@ -1,14 +1,13 @@
-import json, jwt, environ
+import json, jwt, os
 from app.helper.commonFunction import get_error_response, decrypt_data, handle_exception
-from app.helper.logger import logger
 from app.model.elasticModel import es_count, es_search
 from django.utils.deprecation import MiddlewareMixin
 from .url_info import auth_urls, encrypted_urls, public_urls
-
+from app.helper.log_methods import Info, Error, Critical, Warn
+import traceback
 
 # GET ENV variables
-env = environ.Env()
-JWT_SECRET_KEY = env('JWT_SECRET_KEY') 
+JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
 
 config = json.load(open('app/config/config.json'))
 err_codes = json.load(open('app/config/custom_err_codes.json'))
@@ -36,7 +35,8 @@ class AuthMiddleware(MiddlewareMixin):
                         # Decode JWT Token
                         userInfo = jwt.decode(jwt_token, JWT_SECRET_KEY, algorithms=['HS256'])
                         mobile = userInfo['mobile']
-                        logger.info(f"{mobile}: {request_path}")
+
+                        Info('LOG', f'On decoding token got user details: {mobile}: {request_path}')
 
                         # GET CGK for encrypted routes
                         if request_path in encrypted_urls:
@@ -46,29 +46,34 @@ class AuthMiddleware(MiddlewareMixin):
                         # Validate if it's an active user
                         if request_path in public_urls:
                             if userInfo['userType'] != "guest":
-                                logger.error("User Token for Public URL!")
+                                Error('TOKEN_ERR', 'Log-out first to register again!')
                                 return get_error_response(401, 4011, 'Log-out first to register again!')
                         else:
                             if userInfo['userType'] == "guest":
-                                logger.error("Please register first!")
+                                Error('TOKEN_ERR', "Please register first!")
                                 return get_error_response(401, 4011, 'Please register first!')
 
                             
                             count_query = {"query": {"match": {"mobile": mobile}}, "size": 1}
                             active_user = es_search(USER_INDEX, count_query)
                             if not active_user:
-                                logger.error("User Not Exists!")
+                                Error('TOKEN_ERR', "User Not Exists!")
                                 return get_error_response(400, 4007)
                             else:
                                 userInfo['record'] = active_user[0]
                         request._userInfo = userInfo
                     except jwt.ExpiredSignatureError:
+                        Error('TOKEN_ERR', "Token Expired!")
                         raise Exception('TOKEN_ERR', {'subcode': 4013})
                     except (jwt.DecodeError, jwt.InvalidTokenError):
+                        Error('TOKEN_ERR', "Invalid token")
                         raise Exception('TOKEN_ERR', {'subcode': 4012})
                 else:
+                    Error('TOKEN_ERR', "Token not found")
                     raise Exception('TOKEN_ERR', {'subcode': 4011})
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            Error('TOKEN_ERR', e.name, traceback=stack_trace)
             return handle_exception(e, request)
         
         

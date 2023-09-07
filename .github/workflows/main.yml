@@ -34,7 +34,7 @@ jobs:
       env:
         TAG: ${{ steps.latest-tag.outputs.tag }}
       run: |
-        # Your Docker build and push commands using Kustomize here
+        # Your Docker busild and push commands using Kustomize here
         # Replace <your-image-name> with your actual image name
         echo "$TAG"
         docker build -t dev-registry.sarv.com/naam-dev/helloapp:${TAG} .

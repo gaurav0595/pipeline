@@ -7,4 +7,4 @@ resources:
 images:
   - name: dev-registry.sarv.com/naam-dev/naam-dev-api-backend
     newName: dev-registry.sarv.com/naam-dev/naam-dev-api-backend
-    newTag: $VERSION
+    newTag: $TAG

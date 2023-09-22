@@ -5,7 +5,7 @@ RUN apt-get update \
     && apt-get install -y openssh-server vim cron  git sudo supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Enable SSH
+# Enabled SSH
 RUN mkdir /var/run/sshd
 RUN echo 'root:EP0021wqt' | chpasswd
 RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config

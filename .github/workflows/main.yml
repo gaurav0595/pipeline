@@ -3,7 +3,7 @@ name: Docker Build and Push with Kustomize
 on:
   push:
     branches:
-      - master  # Adjust the branch name as needed
+      - dev  # Adjust the branch name as needed
 
 jobs:
   build-and-push:
@@ -70,7 +70,7 @@ jobs:
         git branch deploy
         git checkout deploy
         rm -rf *
-        git checkout master -- kustomization
+        git checkout dev -- kustomization
         git add .
         git commit -m "deploy with version $TAG"  
         git push origin deploy        

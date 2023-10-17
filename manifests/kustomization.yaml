@@ -7,4 +7,4 @@ resources:
 images:
   - name: dev-registry.sarv.com/naam-dev/helloapp
     newName: dev-registry.sarv.com/naam-dev/helloapp
-    newTag: $TAG
+    newTag: dev-1.0.13

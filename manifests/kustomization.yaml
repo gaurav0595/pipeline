@@ -5,6 +5,6 @@ resources:
   - deployment.yaml
 
 images:
-  - name: dev-registry.sarv.com/naam-dev/naam-dev-api-backend
-    newName: dev-registry.sarv.com/naam-dev/naam-dev-api-backend
+  - name: dev-registry.sarv.com/naam-dev/helloapp
+    newName: dev-registry.sarv.com/naam-dev/helloapp
     newTag: $TAG

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: naam-dev-api-backend-test
-  namespace: naam-dev
+  namespace: test
   labels:
     type: dev
     server-type: naam-dev-api-backend

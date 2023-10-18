@@ -5,7 +5,7 @@ metadata:
     server-type: naam-dev-api-backend
     type: dev
   name: naam-dev-api-backend-test
-  namespace: naam-dev
+  namespace: test
 spec:
   replicas: 1
   selector:
